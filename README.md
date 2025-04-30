@@ -1,3 +1,7 @@
+# Fork for personal use, do not use in prod
+- I added a few useful changes that were made by @Hunternif https://github.com/Hunternif/szurubooru/tree/common-tags-on-upload.
+- I plan to add a few other things (mainly QOL changes).
+
 # szurubooru
 
 Szurubooru is an image board engine inspired by services such as Danbooru,

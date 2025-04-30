@@ -4,6 +4,8 @@ const events = require("../events.js");
 const api = require("../api.js");
 const views = require("../util/views.js");
 const FileDropperControl = require("../controls/file_dropper_control.js");
+const misc = require("../util/misc.js");
+const TagAutoCompleteControl = require("../controls/tag_auto_complete_control.js");
 
 const template = views.getTemplate("post-upload");
 const rowTemplate = views.getTemplate("post-upload-row");
@@ -73,7 +75,9 @@ class File extends Uploadable {
             reader.addEventListener("load", (e) => {
                 this._previewUrl = e.target.result;
                 this.dispatchEvent(
-                    new CustomEvent("finish", { detail: { uploadable: this } })
+                    new CustomEvent("finish", {
+                        detail: { uploadable: this },
+                    }),
                 );
             });
         }
@@ -169,22 +173,36 @@ class PostUploadView extends events.EventTarget {
                 allowUrls: true,
                 allowMultiple: true,
                 lock: false,
-            }
+            },
         );
         this._contentFileDropper.addEventListener("fileadd", (e) =>
-            this._evtFilesAdded(e)
+            this._evtFilesAdded(e),
         );
         this._contentFileDropper.addEventListener("urladd", (e) =>
-            this._evtUrlsAdded(e)
+            this._evtUrlsAdded(e),
         );
 
         this._cancelButtonNode.addEventListener("click", (e) =>
-            this._evtCancelButtonClick(e)
+            this._evtCancelButtonClick(e),
         );
         this._formNode.addEventListener("submit", (e) =>
-            this._evtFormSubmit(e)
+            this._evtFormSubmit(e),
         );
         this._formNode.classList.add("inactive");
+
+        // courtesy of: https://github.com/Hunternif/szurubooru/tree/common-tags-on-upload
+        if (this._commonTagsInputNode) {
+            this._autoCompleteControl = new TagAutoCompleteControl(
+                this._commonTagsInputNode,
+                {
+                    confirm: (tag) =>
+                        this._autoCompleteControl.replaceSelectedText(
+                            misc.escapeSearchTerm(tag.names[0]),
+                            true,
+                        ),
+                },
+            );
+        }
     }
 
     enableForm() {
@@ -232,7 +250,7 @@ class PostUploadView extends events.EventTarget {
             this._emit("change");
             this._renderRowNode(uploadable);
             uploadable.addEventListener("finish", (e) =>
-                this._updateThumbnailNode(e.detail.uploadable)
+                this._updateThumbnailNode(e.detail.uploadable),
             );
         }
         if (duplicatesFound) {
@@ -300,21 +318,28 @@ class PostUploadView extends events.EventTarget {
         }
 
         const anonymousNode = rowNode.querySelector(
-            ".anonymous input:checked"
+            ".anonymous input:checked",
         );
         if (anonymousNode) {
             uploadable.anonymous = true;
         }
 
         uploadable.tags = [];
+
+        if (this._commonTagsInputNode) {
+            var tags = this._commonTagsInputNode.value.split(" ");
+            tags = tags.filter((t) => t != "");
+            uploadable.tags = uploadable.tags.concat(tags);
+        }
+
         uploadable.relations = [];
         for (let [i, lookalike] of uploadable.lookalikes.entries()) {
             let lookalikeNode = rowNode.querySelector(
-                `.lookalikes li:nth-child(${i + 1})`
+                `.lookalikes li:nth-child(${i + 1})`,
             );
             if (lookalikeNode.querySelector("[name=copy-tags]").checked) {
                 uploadable.tags = uploadable.tags.concat(
-                    lookalike.post.tagNames
+                    lookalike.post.tagNames,
                 );
             }
             if (lookalikeNode.querySelector("[name=add-relation]").checked) {
@@ -345,12 +370,12 @@ class PostUploadView extends events.EventTarget {
             if (delta === 1) {
                 this._listNode.insertBefore(
                     uploadable2.rowNode,
-                    uploadable1.rowNode
+                    uploadable1.rowNode,
                 );
             } else {
                 this._listNode.insertBefore(
                     uploadable1.rowNode,
-                    uploadable2.rowNode
+                    uploadable2.rowNode,
                 );
             }
         }
@@ -367,18 +392,18 @@ class PostUploadView extends events.EventTarget {
                     pauseRemainOnError:
                         this._pauseRemainOnErrorCheckboxNode.checked,
                 },
-            })
+            }),
         );
     }
 
     _renderRowNode(uploadable) {
         const rowNode = rowTemplate(
-            Object.assign({}, this._ctx, { uploadable: uploadable })
+            Object.assign({}, this._ctx, { uploadable: uploadable }),
         );
         if (uploadable.rowNode) {
             uploadable.rowNode.parentNode.replaceChild(
                 rowNode,
-                uploadable.rowNode
+                uploadable.rowNode,
             );
         } else {
             this._listNode.appendChild(rowNode);
@@ -389,27 +414,27 @@ class PostUploadView extends events.EventTarget {
         rowNode
             .querySelector("a.remove")
             .addEventListener("click", (e) =>
-                this._evtRemoveClick(e, uploadable)
+                this._evtRemoveClick(e, uploadable),
             );
         rowNode
             .querySelector("a.move-up")
             .addEventListener("click", (e) =>
-                this._evtMoveClick(e, uploadable, -1)
+                this._evtMoveClick(e, uploadable, -1),
             );
         rowNode
             .querySelector("a.move-down")
             .addEventListener("click", (e) =>
-                this._evtMoveClick(e, uploadable, 1)
+                this._evtMoveClick(e, uploadable, 1),
             );
     }
 
     _updateThumbnailNode(uploadable) {
         const rowNode = rowTemplate(
-            Object.assign({}, this._ctx, { uploadable: uploadable })
+            Object.assign({}, this._ctx, { uploadable: uploadable }),
         );
         views.replaceContent(
             uploadable.rowNode.querySelector(".thumbnail"),
-            rowNode.querySelector(".thumbnail").childNodes
+            rowNode.querySelector(".thumbnail").childNodes,
         );
     }
 
@@ -431,13 +456,13 @@ class PostUploadView extends events.EventTarget {
 
     get _alwaysUploadSimilarCheckboxNode() {
         return this._hostNode.querySelector(
-            "form [name=always-upload-similar]"
+            "form [name=always-upload-similar]",
         );
     }
 
     get _pauseRemainOnErrorCheckboxNode() {
         return this._hostNode.querySelector(
-            "form [name=pause-remain-on-error]"
+            "form [name=pause-remain-on-error]",
         );
     }
 
@@ -451,6 +476,10 @@ class PostUploadView extends events.EventTarget {
 
     get _contentInputNode() {
         return this._formNode.querySelector(".dropper-container");
+    }
+
+    get _commonTagsInputNode() {
+        return this._formNode.querySelector("form [name=common-tags");
     }
 }
 

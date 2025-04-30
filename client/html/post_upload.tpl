@@ -29,6 +29,12 @@
                 }) %>
             </span>
 
+            <!-- courtesy of: https://github.com/Hunternif/szurubooru/tree/common-tags-on-upload -->
+            <%= ctx.makeTextInput({placeholder: 'Common tags',
+             id: 'common-tags',
+             name: 'common-tags',
+             style: 'margin-top:1em;'}) %>
+
             <input type='button' value='Cancel' class='cancel'/>
         </div>
 
